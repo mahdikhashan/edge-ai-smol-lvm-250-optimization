@@ -43,10 +43,18 @@ class GraphDecoder:
         self.idx = torch.zeros(1, dtype=torch.long, device=dev)
         self.out = torch.zeros(max_new_tokens, dtype=torch.long, device=dev)
         self.graph = None
+        # eager attention builds its own mask with a CPU->GPU copy, which CUDA graph capture forbids
+        self.own_mask = model.config.text_config._attn_implementation == "eager"
+
+    def mask(self):
+        allowed = torch.arange(self.max_len, device=self.pos.device) <= self.pos[:, None]
+        dtype = self.model.dtype
+        return ((~allowed).to(dtype) * torch.finfo(dtype).min)[:, None, None, :]
 
     def step(self):
+        extra = {"attention_mask": self.mask()} if self.own_mask else {}
         h = self.model.model.text_model(
-            input_ids=self.ids, cache_position=self.pos, past_key_values=self.cache, use_cache=True
+            input_ids=self.ids, cache_position=self.pos, past_key_values=self.cache, use_cache=True, **extra
         ).last_hidden_state
         nxt = self.model.lm_head(h[:, -1]).argmax(-1, keepdim=True)
         self.ids.copy_(nxt)

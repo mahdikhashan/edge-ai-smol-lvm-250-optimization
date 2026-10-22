@@ -4,6 +4,9 @@ All notable changes to this project are recorded here, newest first.
 
 ## 2026-10-22
 
+### Fixed
+- `GraphDecoder` with `eager` attention: graph capture failed with "Cannot copy between CPU and CUDA tensors". The decode step now passes an explicit 4D mask built on the GPU when the text model uses `eager` attention. The `sdpa` path is unchanged.
+
 ### Added
 - `attn_check.py` and `smolvlm_256m_attention_check.ipynb`: experiment that reports the attention implementation in use and compares `default`, `eager` and `sdpa` (prefill, graph decode, peak VRAM, answer match). `make attn` runs it.
 - `README.md`: project overview, file list, and a ranked table of optimizations (open and done) based on the measured results.
