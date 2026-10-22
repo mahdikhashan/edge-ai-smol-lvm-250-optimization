@@ -7,7 +7,7 @@ IMG = $(abspath $(IMAGE))
 all: run bench
 
 run:
-	cd scripts && $(PYTHON) smolvlm_cuda_graphs.py $(IMG)
+	$(PYTHON) smolvlm_cuda_graphs.py $(IMG)
 
 bench:
-	cd scripts && $(PYTHON) bench.py --image $(IMG)
+	$(PYTHON) bench.py --image $(IMG)

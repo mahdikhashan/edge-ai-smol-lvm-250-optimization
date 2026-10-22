@@ -7,7 +7,7 @@ MODEL_ID = "HuggingFaceTB/SmolVLM-256M-Instruct"
 
 def load(dtype=torch.float16, device="cuda"):
     processor = AutoProcessor.from_pretrained(MODEL_ID)
-    model = AutoModelForImageTextToText.from_pretrained(MODEL_ID, torch_dtype=dtype).to(device).eval()
+    model = AutoModelForImageTextToText.from_pretrained(MODEL_ID, dtype=dtype).to(device).eval()
     return model, processor
 
 
@@ -82,9 +82,13 @@ class GraphDecoder:
             self.graph.replay() if use_graph else self.step()
         return self.out.clone()
 
-    def generate(self, inputs, use_graph=True):
+    def generate(self, inputs, eos_ids, use_graph=True):
         first = self.prefill(inputs)
-        return torch.cat([first.view(1), self.decode(use_graph)]).tolist()
+        ids = torch.cat([first.view(1), self.decode(use_graph)]).tolist()
+        for i, t in enumerate(ids):
+            if t in eos_ids:
+                return ids[:i]
+        return ids
 
 
 if __name__ == "__main__":
@@ -94,4 +98,6 @@ if __name__ == "__main__":
     inputs = make_inputs(processor, sys.argv[1], "Describe any visible defects.")
     dec = GraphDecoder(model)
     dec.capture()
-    print(processor.tokenizer.decode(dec.generate(inputs), skip_special_tokens=True))
+    tok = processor.tokenizer
+    eos = {tok.eos_token_id, tok.convert_tokens_to_ids("<end_of_utterance>")}
+    print(tok.decode(dec.generate(inputs, eos), skip_special_tokens=True))
