@@ -2,7 +2,7 @@ PYTHON ?= python
 IMAGE ?= frame.jpg
 IMG = $(abspath $(IMAGE))
 
-.PHONY: all run bench attn
+.PHONY: all run bench attn hybrid
 
 all: run bench
 
@@ -14,3 +14,6 @@ bench:
 
 attn:
 	$(PYTHON) attn_check.py --image $(IMG)
+
+hybrid:
+	$(PYTHON) hybrid_attn.py --image $(IMG)
