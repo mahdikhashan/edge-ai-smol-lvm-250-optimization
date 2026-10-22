@@ -35,10 +35,13 @@ class TrtEncoder:
         self.inp = next(n for n in names if engine.get_tensor_mode(n) == trt.TensorIOMode.INPUT)
         self.out = next(n for n in names if engine.get_tensor_mode(n) == trt.TensorIOMode.OUTPUT)
         self.out_shape = tuple(engine.get_tensor_shape(self.out))
+        dtypes = {trt.DataType.FLOAT: torch.float32, trt.DataType.HALF: torch.float16}
+        self.in_dtype = dtypes[engine.get_tensor_dtype(self.inp)]
+        self.out_dtype = dtypes[engine.get_tensor_dtype(self.out)]
 
     def __call__(self, x):
-        x = x.float().contiguous()  # the engine has fp32 inputs and outputs, and fp16 inside
-        y = torch.empty(self.out_shape, dtype=torch.float32, device=x.device)
+        x = x.to(self.in_dtype).contiguous()
+        y = torch.empty(self.out_shape, dtype=self.out_dtype, device=x.device)
         self.ctx.set_tensor_address(self.inp, x.data_ptr())
         self.ctx.set_tensor_address(self.out, y.data_ptr())
         self.ctx.execute_async_v3(torch.cuda.current_stream().cuda_stream)
@@ -73,9 +76,9 @@ def capture_encoder_input(model, inputs):
 
 def export_onnx(model, x, path):
     set_attn(model, "eager")  # plain matmul + softmax attention exports cleanly; TensorRT fuses it again
-    enc = copy.deepcopy(Encoder(model.model.vision_model)).float().eval()
+    enc = copy.deepcopy(Encoder(model.model.vision_model)).half().eval()  # fp16 types: newer TensorRT takes the precision from the ONNX
     set_attn(model, "sdpa")
-    args = (x.float(),)
+    args = (x.half(),)
     kw = dict(input_names=["embeds"], output_names=["hidden"], opset_version=17)
     with torch.no_grad():
         try:
@@ -95,18 +98,22 @@ def build_engine(onnx, engine):
 
     logger = trt.Logger(trt.Logger.WARNING)
     builder = trt.Builder(logger)
-    flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH) if hasattr(trt.NetworkDefinitionCreationFlag, "EXPLICIT_BATCH") else 0
+    nf, has_fp16_flag = trt.NetworkDefinitionCreationFlag, hasattr(trt.BuilderFlag, "FP16")
+    flag = 1 << int(nf.EXPLICIT_BATCH) if hasattr(nf, "EXPLICIT_BATCH") else 0
+    if not has_fp16_flag:  # TensorRT without BuilderFlag.FP16: a strongly typed network uses the types in the ONNX file
+        flag |= 1 << int(nf.STRONGLY_TYPED)
     network = builder.create_network(flag)
     parser = trt.OnnxParser(network, logger)
     if not parser.parse(Path(onnx).read_bytes()):
         raise RuntimeError("; ".join(str(parser.get_error(i)) for i in range(parser.num_errors)))
     config = builder.create_builder_config()
-    config.set_flag(trt.BuilderFlag.FP16)
+    if has_fp16_flag:
+        config.set_flag(trt.BuilderFlag.FP16)
     data = builder.build_serialized_network(network, config)
     if data is None:
         raise RuntimeError("TensorRT build failed")
     Path(engine).write_bytes(data)
-    return "python API"
+    return f"python API, TensorRT {trt.__version__}, {'FP16 flag' if has_fp16_flag else 'strongly typed fp16'}"
 
 
 def check_packages():

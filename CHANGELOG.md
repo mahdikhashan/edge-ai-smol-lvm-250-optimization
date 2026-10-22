@@ -5,6 +5,7 @@ All notable changes to this project are recorded here, newest first.
 ## 2026-10-22
 
 ### Fixed
+- `trt_siglip.py`: engine build failed with "BuilderFlag has no attribute FP16" on new TensorRT versions. The encoder is now exported in fp16. The builder sets the FP16 flag if it exists, and builds a strongly typed network if it does not. The engine wrapper reads the engine tensor types.
 - `trt_siglip.py`: the ONNX export failed with "Module onnx is not installed". The notebook now installs `onnx` with `tensorrt`, and the script stops at the start with a clear message if either package is missing.
 - `GraphDecoder` with `eager` attention: graph capture failed with "Cannot copy between CPU and CUDA tensors". The decode step now passes an explicit 4D mask built on the GPU when the text model uses `eager` attention. The `sdpa` path is unchanged.
 
