@@ -3,7 +3,7 @@ IMAGE ?= frame.jpg
 PREPROCESS ?= default
 IMG = $(abspath $(IMAGE))
 
-.PHONY: all run bench attn hybrid preprocess eos
+.PHONY: all run bench attn hybrid preprocess eos prefill
 
 all: run bench
 
@@ -24,3 +24,6 @@ preprocess:
 
 eos:
 	$(PYTHON) eos_stop.py --image $(IMG)
+
+prefill:
+	$(PYTHON) prefill_profile.py --image $(IMG)
