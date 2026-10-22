@@ -40,6 +40,7 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- README: added the TensorRT SigLIP results (SigLIP 1.23 times faster, prefill 32 ms less).
 - README: added the prefill profile results. SigLIP uses 68% of the prefill (about 50% of the request). The LM head costs 1.6 ms.
 - README ranking: re-ranked with the measured SigLIP share. Added "CUDA graph for the decoder part of the prefill" as a new open row.
 - Notebook `smolvlm_256m_benchmark.ipynb`: added the stop-at-EOS result cell. The request takes 369 ms with the stop against 806 ms with 64 steps.
