@@ -43,6 +43,7 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- Notebook `smolvlm_256m_benchmark.ipynb`: added the result cell for 5 tiles with TensorRT. The request takes 159 ms (173 ms without TensorRT, 369 ms with 13 tiles).
 - `make_inputs` and `encode` in `smolvlm_cuda_graphs.py` take `size` / `image_kwargs` for the tile setting.
 - README: added the TensorRT SigLIP results (SigLIP 1.23 times faster, prefill 32 ms less).
 - README: added the prefill profile results. SigLIP uses 68% of the prefill (about 50% of the request). The LM head costs 1.6 ms.
