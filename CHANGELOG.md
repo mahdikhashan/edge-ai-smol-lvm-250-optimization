@@ -5,6 +5,9 @@ All notable changes to this project are recorded here, newest first.
 ## 2026-10-22
 
 ### Added
+- `bench.py`: times the CPU preprocessing steps (JPEG decode, tile + normalize, tokenize, and the `make_inputs` total) before the model benchmark.
+- `bench.py`: logs RAM (peak process memory) and VRAM (allocated, peak, reserved) after model load and after the benchmark.
+- `chat_text` helper in `smolvlm_cuda_graphs.py`, shared by `make_inputs` and the benchmark.
 - `run.ipynb`: final cell with the benchmark results and a short analysis (table of decode time by mode and `max_len`).
 - `bench.py --max-len`: sets the static KV-cache length, to test how cache size affects graph decode time. Prints the prompt token count.
 - `run.ipynb`: last cell loops the benchmark over `--max-len` 512, 1024 and 2048 (4096 is the default run in the cell above).
