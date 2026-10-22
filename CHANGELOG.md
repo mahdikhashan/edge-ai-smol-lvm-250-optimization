@@ -33,6 +33,8 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- Notebook `smolvlm_256m_benchmark.ipynb`: added the result cell. With graph decoding and `fast-gpu`, the request takes 823 ms against 3152 ms for the bare model with the slow processor (3.8 times faster).
+- README: the GPU preprocessing row in the done table now shows the end-to-end gain.
 - `bench.mean_ms` synchronizes the GPU after each call, so GPU preprocessing steps are timed correctly.
 - Notebook `smolvlm_256m_gpu_preprocessing.ipynb`: added the result cell. The fast processor on the GPU prepares the input in 11.6 ms against 299 ms for the slow processor.
 - README ranking: the GPU preprocessing row moved to the done table. The ranks below it moved up by one.
