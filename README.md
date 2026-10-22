@@ -32,23 +32,22 @@ Time for one request: preprocessing 325 ms, prefill 286 ms, decode 524 ms (8.2 m
 
 | Rank | Optimization | Stage | Evidence | Expected gain | Effort |
 |---|---|---|---|---|---|
-| 1 | Resize and normalize on the GPU (fast image processor, DALI, or VPI) | Preprocessing (CPU) | Tile and normalize take 308 ms of 1135 ms. | Up to 308 ms (est.) | Low |
-| 2 | Fewer image tiles (lower the split resolution, or do not split) | Preprocessing, prefill, cache | The prompt has 875 tokens. Tile time and prefill time grow with the tile count. | Large. It scales with the tile count. It can lower accuracy. | Low |
-| 3 | Stop at EOS and lower `max_new_tokens` | Decode | Each token costs 8.2 ms. The script always runs all 64 steps. | About 8.2 ms for each token removed | Low |
-| 4 | Run the VLM only on frames that YOLO flags (distill or fine-tune for the task) | Whole request | Each skipped frame saves all 1135 ms. | Depends on the share of skipped frames | High |
-| 5 | Cache vision embeddings for near-identical frames | Prefill | SigLIP is probably the largest part of the 286 ms prefill (est.). | Most of the prefill for repeated scenes | Medium |
-| 6 | Pipeline frames: the CPU prepares frame N+1 while the GPU runs frame N | Throughput | CPU work takes 325 ms. GPU work takes about 810 ms. | About 1.4 times more frames per second. Latency does not change. | Medium |
-| 7 | Weight quantization (INT8, INT4) | Decode | Weights use 497 MB. Decode has a fixed cost of about 5.3 ms per token. | Unknown. Profile first. It can lower accuracy. | Medium |
-| 8 | TensorRT engine for SigLIP | Prefill | Prefill takes 286 ms (25% of the request). | Unknown | High |
-| 9 | Token pruning or merging in SigLIP (for example ToMe) | Prefill | Same as rank 9. | Unknown. It can lower accuracy. | Medium |
-| 10 | Compiled runtimes (TensorRT-LLM, llama.cpp, MLC-LLM, ONNX Runtime with TensorRT) | Decode, prefill | CUDA graphs already remove most of the launch cost. | Small (est.) | High |
-| 11 | Zero-copy unified memory | Copy to GPU | The copy takes about 15 ms. | Up to 15 ms | Medium |
-| 12 | Hardware JPEG decode (nvJPEG, Jetson decoder) | Preprocessing | JPEG decode takes 0.7 ms for the test image. | Small for this image. More for a large frame. | Medium |
-| 13 | Maximum clocks (`nvpmodel -m 0`, `jetson_clocks`) | All, Jetson only | Not measured. Colab has no Jetson clocks. | Steadier timing | Low |
-| 14 | Batch the tiles in one call | Prefill | The model probably does this already. Not checked. | Probably none | Low |
-| 15 | FP8 or INT8 KV cache | Decode | The cache takes about 23 MB for each 1000 slots. | Small | Medium |
-| 16 | Reuse the prefix cache between frames | Prefill | The image tokens come early in the prompt, so the shared prefix is probably short. | Small (est.) | Medium |
-| 17 | Speculative or prompt-lookup decoding | Decode | Decode takes 8.2 ms per token. The answers are short. | Small (est.) | Medium |
+| 1 | Fewer image tiles (lower the split resolution, or do not split) | Preprocessing, prefill, cache | The prompt has 875 tokens. Tile time and prefill time grow with the tile count. | Large. It scales with the tile count. It can lower accuracy. | Low |
+| 2 | Stop at EOS and lower `max_new_tokens` | Decode | Each token costs 8.2 ms. The script always runs all 64 steps. | About 8.2 ms for each token removed | Low |
+| 3 | Run the VLM only on frames that YOLO flags (distill or fine-tune for the task) | Whole request | Each skipped frame saves all 1135 ms. | Depends on the share of skipped frames | High |
+| 4 | Cache vision embeddings for near-identical frames | Prefill | SigLIP is probably the largest part of the 286 ms prefill (est.). | Most of the prefill for repeated scenes | Medium |
+| 5 | Pipeline frames: the CPU prepares frame N+1 while the GPU runs frame N | Throughput | CPU work takes 325 ms. GPU work takes about 810 ms. | About 1.4 times more frames per second. Latency does not change. | Medium |
+| 6 | Weight quantization (INT8, INT4) | Decode | Weights use 497 MB. Decode has a fixed cost of about 5.3 ms per token. | Unknown. Profile first. It can lower accuracy. | Medium |
+| 7 | TensorRT engine for SigLIP | Prefill | Prefill takes 286 ms (25% of the request). | Unknown | High |
+| 8 | Token pruning or merging in SigLIP (for example ToMe) | Prefill | Same as rank 9. | Unknown. It can lower accuracy. | Medium |
+| 9 | Compiled runtimes (TensorRT-LLM, llama.cpp, MLC-LLM, ONNX Runtime with TensorRT) | Decode, prefill | CUDA graphs already remove most of the launch cost. | Small (est.) | High |
+| 10 | Zero-copy unified memory | Copy to GPU | The copy takes about 15 ms. | Up to 15 ms | Medium |
+| 11 | Hardware JPEG decode (nvJPEG, Jetson decoder) | Preprocessing | JPEG decode takes 0.7 ms for the test image. | Small for this image. More for a large frame. | Medium |
+| 12 | Maximum clocks (`nvpmodel -m 0`, `jetson_clocks`) | All, Jetson only | Not measured. Colab has no Jetson clocks. | Steadier timing | Low |
+| 13 | Batch the tiles in one call | Prefill | The model probably does this already. Not checked. | Probably none | Low |
+| 14 | FP8 or INT8 KV cache | Decode | The cache takes about 23 MB for each 1000 slots. | Small | Medium |
+| 15 | Reuse the prefix cache between frames | Prefill | The image tokens come early in the prompt, so the shared prefix is probably short. | Small (est.) | Medium |
+| 16 | Speculative or prompt-lookup decoding | Decode | Decode takes 8.2 ms per token. The answers are short. | Small (est.) | Medium |
 
 ### Done optimizations
 
@@ -57,5 +56,6 @@ Time for one request: preprocessing 325 ms, prefill 286 ms, decode 524 ms (8.2 m
 | CUDA graphs (manual capture; `torch.compile` with `reduce-overhead` is not tried) | Decode | 31.8 ms/token (eager) to 16.7 ms/token at max_len 4096. 1.9 times faster. |
 | Static KV cache with a small `max_len` | Decode | 16.7 ms/token at max_len 4096 to 8.2 ms/token at max_len 1024. 2.0 times faster. |
 | FP16 weights | All | Weights use 497 MB of VRAM. |
+| Resize and normalize on the GPU: fast image processor with `device="cuda"` (in `gpu_preprocess.py`, not in the main script) | Preprocessing | Full input preparation: 299 ms (`slow`) to 11.6 ms. Pixel difference is small (mean 0.005). Same answer on one image. Peak VRAM +146 MB. |
 | Hybrid attention: `sdpa` for prefill, `eager` for decode (in `hybrid_attn.py`, not in the main script) | Prefill, decode | Total for 64 tokens: 796 ms (`sdpa`) to 700 ms. Prefill 286 ms, decode 6.47 ms/token, peak VRAM 889 MB. |
 | SDPA attention (already the default for the text and vision models) | Prefill | `sdpa` prefill takes 280 ms. `eager` prefill takes 393 ms. Peak VRAM: 889 MB and 2012 MB. |

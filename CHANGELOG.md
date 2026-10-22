@@ -30,6 +30,8 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- Notebook `smolvlm_256m_gpu_preprocessing.ipynb`: added the result cell. The fast processor on the GPU prepares the input in 11.6 ms against 299 ms for the slow processor.
+- README ranking: the GPU preprocessing row moved to the done table. The ranks below it moved up by one.
 - Notebook `smolvlm_256m_hybrid_attention.ipynb`: added the result cell. The hybrid takes 700 ms for 64 tokens against 796 ms for `sdpa` and 808 ms for `eager`.
 - README ranking: the hybrid attention row moved to the done table. The ranks below it moved up by one.
 - Notebook `smolvlm_256m_attention_check.ipynb`: added the mask-test result cell. The mask explains only 0.18 ms of the 1.7 ms/token decode gap, so the attention itself is the cause.
