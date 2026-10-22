@@ -5,6 +5,9 @@ All notable changes to this project are recorded here, newest first.
 ## 2026-10-22
 
 ### Added
+- `bench.py --max-len`: sets the static KV-cache length, to test how cache size affects graph decode time. Prints the prompt token count.
+- `run.ipynb`: last cell runs the benchmark with `--max-len 1024`.
+- `GraphDecoder.prefill` asserts that the prompt and new tokens fit in `max_len`.
 - `bench.py`: bare baseline (plain `model.generate`, no static cache or graph) on the same image and prompt, with an output comparison against graph decoding.
 - `smolvlm_cuda_graphs.py`: CUDA-graph decoding for SmolVLM-256M (eager prefill, graph-replayed decode with a static KV cache).
 - `bench.py`: benchmark comparing eager and graph decoding, with an output-equality check.

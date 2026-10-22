@@ -71,6 +71,7 @@ class GraphDecoder:
     def prefill(self, inputs):
         self.cache.reset()
         n = inputs["input_ids"].shape[1]
+        assert n + self.max_new < self.max_len, f"prompt {n} + {self.max_new} new tokens do not fit max_len {self.max_len}"
         logits = self.model(
             **inputs, past_key_values=self.cache, use_cache=True,
             cache_position=torch.arange(n, device=self.model.device),

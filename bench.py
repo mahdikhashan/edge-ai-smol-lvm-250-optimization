@@ -53,12 +53,14 @@ def main():
     ap.add_argument("--image", required=True)
     ap.add_argument("--prompt", default=PROMPT)
     ap.add_argument("--max-new-tokens", type=int, default=64)
+    ap.add_argument("--max-len", type=int, default=4096)
     ap.add_argument("--runs", type=int, default=5)
     args = ap.parse_args()
 
     model, processor = load()
     inputs = make_inputs(processor, args.image, args.prompt)
-    dec = GraphDecoder(model, args.max_new_tokens)
+    print(f"prompt tokens: {inputs['input_ids'].shape[1]} | max_len: {args.max_len}")
+    dec = GraphDecoder(model, args.max_new_tokens, args.max_len)
     dec.capture()
 
     outputs = {}
