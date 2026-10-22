@@ -12,6 +12,10 @@ def load(dtype=torch.float16, device="cuda"):
     return model, processor
 
 
+def eos_ids(tok):
+    return {tok.eos_token_id, tok.convert_tokens_to_ids("<end_of_utterance>")}
+
+
 def make_inputs(processor, image_path, prompt, dtype=torch.float16, device="cuda"):
     messages = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": prompt}]}]
     text = processor.apply_chat_template(messages, add_generation_prompt=True)
@@ -100,5 +104,4 @@ if __name__ == "__main__":
     dec = GraphDecoder(model)
     dec.capture()
     tok = processor.tokenizer
-    eos = {tok.eos_token_id, tok.convert_tokens_to_ids("<end_of_utterance>")}
-    print(tok.decode(dec.generate(inputs, eos), skip_special_tokens=True))
+    print(tok.decode(dec.generate(inputs, eos_ids(tok)), skip_special_tokens=True))

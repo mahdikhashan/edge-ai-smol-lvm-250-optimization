@@ -15,6 +15,8 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- `bench.py`: the bare-vs-graph output check now compares only up to the first EOS, because the bare run blocks EOS to force a fixed token count.
+- `eos_ids` helper in `smolvlm_cuda_graphs.py`, shared by the script and `bench.py`.
 - `run.ipynb`: updated kernel metadata (VS Code kernel name, removed `language_info`).
 - `run.ipynb`: added a title cell and a short method description at the top.
 - `run.ipynb`: first two cells now display `frame.jpg` and print the prompt used by the script.

@@ -3,7 +3,7 @@ import time
 
 import torch
 
-from smolvlm_cuda_graphs import PROMPT, GraphDecoder, load, make_inputs
+from smolvlm_cuda_graphs import PROMPT, GraphDecoder, eos_ids, load, make_inputs
 
 
 def timed(fn):
@@ -41,6 +41,13 @@ def bench_bare(model, inputs, n, runs):
     return ids[1:], pre, (sum(total) / runs - pre) / n
 
 
+def until_eos(ids, eos):
+    for i, t in enumerate(ids):
+        if t in eos:
+            return ids[:i]
+    return ids
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--image", required=True)
@@ -63,7 +70,9 @@ def main():
         print(f"{mode:>5}: prefill {pre:6.1f} ms | decode {tpot:5.2f} ms/token | {1000 / tpot:6.1f} tok/s")
 
     print("identical outputs (eager vs graph):", outputs["eager"] == outputs["graph"])
-    print("identical outputs (bare vs graph):", outputs["bare"] == outputs["graph"])
+    # bare blocks EOS (min_new_tokens), so compare only up to graph's first EOS
+    g = until_eos(outputs["graph"], eos_ids(processor.tokenizer))
+    print("bare matches graph up to EOS:", outputs["bare"][:len(g)] == g)
 
 
 if __name__ == "__main__":
