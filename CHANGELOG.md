@@ -10,6 +10,8 @@ All notable changes to this project are recorded here, newest first.
 - `GraphDecoder` with `eager` attention: graph capture failed with "Cannot copy between CPU and CUDA tensors". The decode step now passes an explicit 4D mask built on the GPU when the text model uses `eager` attention. The `sdpa` path is unchanged.
 
 ### Added
+- `bench.py --size N` (resize the longest image side to N pixels, so the image has fewer tiles) and `bench.py --trt` (build or load a TensorRT engine for the SigLIP encoder and rerun the stop-at-EOS benchmark with it, with an answer check). The engine file name includes the tile count.
+- `smolvlm_256m_benchmark.ipynb`: new last cell runs the benchmark with `--size 1024`, `--max-len 448` and `--trt`.
 - `tile_sweep.py` and `smolvlm_256m_tile_sweep.ipynb`: experiment that runs a range of tile settings (`default`, `sizeN`, `nosplit`) on one or more images and reports tiles, prompt tokens, cache length, input/prefill/decode time with stop at EOS, request time, speed-up and the answer. `make tiles` runs it.
 - `trt_siglip.py` and `smolvlm_256m_trt_siglip.ipynb`: experiment that exports the SigLIP encoder to ONNX, builds an FP16 TensorRT engine (`trtexec`, or the Python API if `trtexec` is not found), swaps it into the model, and compares prefill time, SigLIP time, encoder output difference and answer against PyTorch. `make trt` runs it. `.gitignore` ignores the ONNX and engine files.
 - `prefill_profile.py` and `smolvlm_256m_prefill_profile.ipynb`: experiment that measures the share of the prefill time used by SigLIP, the connector, the decoder and the LM head (CUDA events), for the default tiling and with no image splitting. It also prints the time saved if SigLIP were faster. `make prefill` runs it.
@@ -41,6 +43,7 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- `make_inputs` and `encode` in `smolvlm_cuda_graphs.py` take `size` / `image_kwargs` for the tile setting.
 - README: added the TensorRT SigLIP results (SigLIP 1.23 times faster, prefill 32 ms less).
 - README: added the prefill profile results. SigLIP uses 68% of the prefill (about 50% of the request). The LM head costs 1.6 ms.
 - README ranking: re-ranked with the measured SigLIP share. Added "CUDA graph for the decoder part of the prefill" as a new open row.
