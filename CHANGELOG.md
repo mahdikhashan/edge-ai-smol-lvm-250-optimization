@@ -29,6 +29,8 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- Notebook `smolvlm_256m_hybrid_attention.ipynb`: added the result cell. The hybrid takes 700 ms for 64 tokens against 796 ms for `sdpa` and 808 ms for `eager`.
+- README ranking: the hybrid attention row moved to the done table. The ranks below it moved up by one.
 - Notebook `smolvlm_256m_attention_check.ipynb`: added the mask-test result cell. The mask explains only 0.18 ms of the 1.7 ms/token decode gap, so the attention itself is the cause.
 - README ranking: "eager for decode only, sdpa for prefill" moved to rank 4, with the measured gain (about 107 ms for 64 tokens).
 - Notebook `smolvlm_256m_attention_check.ipynb`: added a result cell. The default attention is already `sdpa`. `sdpa` is faster in prefill and uses less VRAM, and `eager` is faster in decode.
