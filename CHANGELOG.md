@@ -8,6 +8,7 @@ All notable changes to this project are recorded here, newest first.
 - `GraphDecoder` with `eager` attention: graph capture failed with "Cannot copy between CPU and CUDA tensors". The decode step now passes an explicit 4D mask built on the GPU when the text model uses `eager` attention. The `sdpa` path is unchanged.
 
 ### Added
+- `eos_stop.py` and `smolvlm_256m_eos_stop.ipynb`: experiment that compares running all decode steps (`fixed`), checking for EOS every K steps (`stopK`) and capping the steps (`capN`): steps run, decode time, total time, time saved, answer complete. `make eos` runs it.
 - `smolvlm_256m_benchmark.ipynb`: runs the full benchmark (bare, eager, graph, preprocessing timers, memory log, `--max-len 1024`) once for each `--preprocess` option.
 - `bench.py --preprocess {default,slow,fast-cpu,fast-gpu}`: picks the image processor and the device that resizes and normalizes the image. `default` keeps the old behavior. `make bench PREPROCESS=fast-gpu` uses it.
 - `encode` helper and `PREPROCESS` table in `smolvlm_cuda_graphs.py`. `load()` takes `fast`, and `make_inputs()` takes `image_device`. `gpu_preprocess.py` imports `encode` from there.

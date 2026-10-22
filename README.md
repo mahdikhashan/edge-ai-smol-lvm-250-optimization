@@ -15,6 +15,8 @@ This project makes SmolVLM-256M generate text faster on a GPU. It records one de
 | `gpu_preprocess.py` | Experiment: image preprocessing with the slow processor, the fast processor on the CPU, and the fast processor on the GPU. Run with `make preprocess`. |
 | `smolvlm_256m_gpu_preprocessing.ipynb` | Notebook for the preprocessing experiment. |
 | `smolvlm_256m_benchmark.ipynb` | Notebook that runs `bench.py` for each `--preprocess` option (`slow`, `fast-cpu`, `fast-gpu`). |
+| `eos_stop.py` | Experiment: stop the decode loop at EOS (`stopK`) or cap the steps (`capN`), compared with all steps (`fixed`). Run with `make eos`. |
+| `smolvlm_256m_eos_stop.ipynb` | Notebook for the EOS experiment. |
 | `smolvlm_256m_cuda_graph_decoding.ipynb` | Notebook that runs both scripts and shows the results. |
 | `Makefile` | `make run`, `make bench`, or `make` for both. Set the image with `IMAGE=path`. |
 | `CHANGELOG.md` | List of changes. |
