@@ -29,7 +29,7 @@ The rank uses three things: the time an optimization can save in one request, ho
 
 Test setup: one Colab GPU, one image, 875 prompt tokens (about 13 tiles), graph decoding with max_len 1024.
 
-Current time for one request (fast GPU preprocessing, stop at EOS, 9-token answer): input 16 ms, prefill 272 ms, decode 81 ms. Total: 369 ms. Prefill is 74% of the request. The first measurement was 1135 ms.
+Current time for one request (fast GPU preprocessing, stop at EOS, 9-token answer): input 16 ms, prefill 272 ms, decode 81 ms. Total: 369 ms. Prefill is 74% of the request, and SigLIP alone is about 50% of it. The first measurement was 1135 ms.
 
 "Est." marks a number we did not measure. Check all numbers on the Jetson Orin.
 
@@ -38,20 +38,21 @@ Current time for one request (fast GPU preprocessing, stop at EOS, 9-token answe
 | Rank | Optimization | Stage | Evidence | Expected gain | Effort |
 |---|---|---|---|---|---|
 | 1 | Fewer image tiles (lower the split resolution, or do not split) | Input, prefill, cache | Prefill takes 272 ms (74% of the request). The prompt has 875 tokens. Prefill time grows with the tile count. | Large. It scales with the tile count. It can lower accuracy. | Low |
-| 2 | Run the VLM only on frames that YOLO flags (distill or fine-tune for the task) | Whole request | Each skipped frame saves all 369 ms. | Depends on the share of skipped frames | High |
-| 3 | Cache vision embeddings for near-identical frames | Prefill | SigLIP is probably the largest part of the 272 ms prefill (est.). | Most of the prefill for repeated scenes | Medium |
-| 4 | TensorRT engine for SigLIP | Prefill | Prefill is 74% of the request. The SigLIP share is not measured. | Unknown. Profile first. | High |
-| 5 | Token pruning or merging in SigLIP (for example ToMe) | Prefill | Same as rank 4. | Unknown. It can lower accuracy. | Medium |
-| 6 | Weight quantization (INT8, INT4) | Decode | Decode takes 81 ms (22% of the request). Weights use 497 MB. | At most part of 81 ms. It can lower accuracy. | Medium |
-| 7 | Batch the tiles in one call | Prefill | The model probably does this already. Not checked. | Probably none | Low |
-| 8 | Compiled runtimes (TensorRT-LLM, llama.cpp, MLC-LLM, ONNX Runtime with TensorRT) | Decode, prefill | CUDA graphs already remove most of the launch cost. | Small (est.) | High |
-| 9 | Maximum clocks (`nvpmodel -m 0`, `jetson_clocks`) | All, Jetson only | Not measured. Colab has no Jetson clocks. | Steadier timing | Low |
-| 10 | Pipeline frames: the CPU prepares frame N+1 while the GPU runs frame N | Throughput | CPU work takes 16 ms. GPU work takes about 353 ms. | About 4% more frames per second. Latency does not change. | Medium |
-| 11 | Zero-copy unified memory | Copy to GPU | The whole input preparation takes 16 ms. The copy is only a part of it. | A few milliseconds (est.) | Medium |
-| 12 | Hardware JPEG decode (nvJPEG, Jetson decoder) | Input | JPEG decode takes 0.7 ms for the test image. | Small for this image. More for a large frame. | Medium |
-| 13 | FP8 or INT8 KV cache | Decode | The cache takes about 23 MB for each 1000 slots. | Small | Medium |
-| 14 | Reuse the prefix cache between frames | Prefill | The image tokens come early in the prompt, so the shared prefix is probably short. | Small (est.) | Medium |
-| 15 | Speculative or prompt-lookup decoding | Decode | Decode takes 81 ms for a 9-token answer. | Small (est.) | Medium |
+| 2 | Cache vision embeddings for near-identical frames | Prefill | SigLIP takes 183 ms (50% of the request). A cache hit skips it. | Up to 183 ms for repeated scenes | Medium |
+| 3 | Run the VLM only on frames that YOLO flags (distill or fine-tune for the task) | Whole request | Each skipped frame saves all 369 ms. | Depends on the share of skipped frames | High |
+| 4 | TensorRT engine for SigLIP | Prefill | SigLIP takes 183 ms (68% of the prefill, 50% of the request). | 2 times faster: 91 ms. 4 times faster: 137 ms. Maximum: 183 ms. | High |
+| 5 | Token pruning or merging in SigLIP (for example ToMe) | Prefill | Same as the TensorRT row. SigLIP time grows with the token count. | Unknown. It can lower accuracy. | Medium |
+| 6 | CUDA graph for the decoder part of the prefill (needs a fixed tile count and a padded prompt) | Prefill | The decoder prefill has a fixed time of about 35 ms. One eager decode step takes about 32 ms. | Up to about 32 ms (est.) | Medium |
+| 7 | Weight quantization (INT8, INT4) | Decode | Decode takes 81 ms (22% of the request). Weights use 497 MB. | At most part of 81 ms. It can lower accuracy. | Medium |
+| 8 | Batch the tiles in one call | Prefill | The model probably does this already. Not checked. | Probably none | Low |
+| 9 | Compiled runtimes (TensorRT-LLM, llama.cpp, MLC-LLM, ONNX Runtime with TensorRT) | Decode, prefill | CUDA graphs already remove most of the launch cost. | Small (est.) | High |
+| 10 | Maximum clocks (`nvpmodel -m 0`, `jetson_clocks`) | All, Jetson only | Not measured. Colab has no Jetson clocks. | Steadier timing | Low |
+| 11 | Pipeline frames: the CPU prepares frame N+1 while the GPU runs frame N | Throughput | CPU work takes 16 ms. GPU work takes about 353 ms. | About 4% more frames per second. Latency does not change. | Medium |
+| 12 | Zero-copy unified memory | Copy to GPU | The whole input preparation takes 16 ms. The copy is only a part of it. | A few milliseconds (est.) | Medium |
+| 13 | Hardware JPEG decode (nvJPEG, Jetson decoder) | Input | JPEG decode takes 0.7 ms for the test image. | Small for this image. More for a large frame. | Medium |
+| 14 | FP8 or INT8 KV cache | Decode | The cache takes about 23 MB for each 1000 slots. | Small | Medium |
+| 15 | Reuse the prefix cache between frames | Prefill | The image tokens come early in the prompt, so the shared prefix is probably short. | Small (est.) | Medium |
+| 16 | Speculative or prompt-lookup decoding | Decode | Decode takes 81 ms for a 9-token answer. | Small (est.) | Medium |
 
 ### Done optimizations
 
@@ -64,3 +65,29 @@ Current time for one request (fast GPU preprocessing, stop at EOS, 9-token answe
 | Resize and normalize on the GPU: fast image processor with `device="cuda"` (in `gpu_preprocess.py`, not in the main script) | Preprocessing | Full input preparation: 299 ms (`slow`) to 11.6 ms. Pixel difference is small (mean 0.005). Same answer on one image. In `bench.py`, the request (graph decoding, 64 tokens) falls from 1107 ms to 823 ms. |
 | Hybrid attention: `sdpa` for prefill, `eager` for decode (in `hybrid_attn.py`, not in the main script) | Prefill, decode | Total for 64 tokens: 796 ms (`sdpa`) to 700 ms. Prefill 286 ms, decode 6.47 ms/token, peak VRAM 889 MB. For a 9-token answer the gain is only about 4 ms. |
 | SDPA attention (already the default for the text and vision models) | Prefill | `sdpa` prefill takes 280 ms. `eager` prefill takes 393 ms. Peak VRAM: 889 MB and 2012 MB. |
+
+## Prefill profile
+
+Test setup: one Colab GPU, one image, `max_len` 1024. The script `prefill_profile.py` puts CUDA event timers around four parts of the prefill. The `nosplit` variant turns the image splitting off.
+
+| Variant | Tiles | Tokens | Prefill (ms) | SigLIP (ms) | SigLIP share | Connector (ms) | Decoder (ms) | Decoder share | LM head (ms) | Other (ms) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| default | 13 | 875 | 268.9 | 182.7 | 68% | 1.1 | 80.6 | 30% | 1.6 | 3.0 |
+| nosplit | 1 | 80 | 53.2 | 11.9 | 22% | 0.1 | 39.0 | 73% | 0.4 | 1.8 |
+
+Prefill time saved if SigLIP were faster (default variant):
+
+| SigLIP speed-up | Time saved (ms) | Prefill (ms) |
+|---|---|---|
+| 1.5 times | 60.9 | 208.0 |
+| 2 times | 91.3 | 177.6 |
+| 4 times | 137.0 | 131.9 |
+
+- SigLIP uses 68% of the prefill (183 ms). This is about 50% of the whole 369 ms request. It is the largest single part.
+- The compute estimate was too high. It said SigLIP needs about 10 times the compute of the decoder. The measured time ratio is 2.3 times.
+- A tile costs about 14 ms in SigLIP and about 3 ms in the decoder (64 tokens). This is about 17 ms of prefill for each tile (estimate from the two variants).
+- The decoder prefill has a fixed time of about 35 ms and about 0.05 ms for each token (estimate from two points). The fixed time is close to the time of one eager decode step (32 ms). The cause is probably launch overhead. We did not verify this.
+- The LM head takes only 1.6 ms. Computing the logits for all tokens costs little, so keeping only the last logits is not worth it.
+- A TensorRT engine for SigLIP can save at most 183 ms. A SigLIP that is 2 times faster saves 91 ms (25% of the request). We do not know what TensorRT gives on this model.
+- Fewer tiles gives the largest gain. With no splitting, the prefill takes 53 ms and not 269 ms. This can lower accuracy.
+- The numbers come from one image and one GPU.
