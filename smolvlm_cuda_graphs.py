@@ -106,14 +106,20 @@ class GraphDecoder:
         return first
 
     @torch.inference_mode()
-    def decode(self, use_graph=True):
-        for _ in range(self.max_new):
+    def decode(self, use_graph=True, eos=None):
+        """Run up to max_new steps. With `eos` (a set of token ids), stop after the step that makes one of them."""
+        eos_t = None if eos is None else torch.tensor(sorted(e for e in eos if e is not None), device=self.model.device)
+        self.steps = self.max_new
+        for i in range(self.max_new):
             self.graph.replay() if use_graph else self.step()
+            if eos_t is not None and torch.isin(self.ids, eos_t).item():
+                self.steps = i + 1
+                break
         return self.out.clone()
 
     def generate(self, inputs, eos_ids, use_graph=True):
         first = self.prefill(inputs)
-        ids = torch.cat([first.view(1), self.decode(use_graph)]).tolist()
+        ids = torch.cat([first.view(1), self.decode(use_graph, eos_ids)]).tolist()
         for i, t in enumerate(ids):
             if t in eos_ids:
                 return ids[:i]

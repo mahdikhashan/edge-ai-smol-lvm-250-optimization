@@ -40,7 +40,9 @@ def bench_preprocess(processor, path, prompt, runs, image_device="cpu"):
     }
     print(f"preprocessing (JPEG decode and tokenize on CPU, tile + normalize on {image_device.upper()}):")
     for name, fn in steps.items():
-        print(f"  {name:<38} {mean_ms(fn, runs):7.1f} ms")
+        ms = mean_ms(fn, runs)
+        print(f"  {name:<38} {ms:7.1f} ms")
+    return ms  # the last step is the make_inputs total
 
 
 def log_memory(tag):
@@ -61,6 +63,17 @@ def bench(dec, inputs, use_graph, runs):
             prefill.append(p)
             decode.append(d / dec.max_new)
     return ids.tolist(), sum(prefill) / runs, sum(decode) / runs
+
+
+def bench_stop(dec, inputs, eos, runs):
+    prefill, decode = [], []
+    for i in range(runs + 1):  # first run is warm-up
+        _, p = timed(lambda: dec.prefill(inputs))
+        _, d = timed(lambda: dec.decode(True, eos))
+        if i:
+            prefill.append(p)
+            decode.append(d)
+    return dec.steps, sum(prefill) / runs, sum(decode) / runs
 
 
 def bench_bare(model, inputs, n, runs):
@@ -102,22 +115,32 @@ def main():
     log_memory("after load")
     inputs = make_inputs(processor, args.image, args.prompt, image_device=image_device)
     print(f"prompt tokens: {inputs['input_ids'].shape[1]} | max_len: {args.max_len}")
-    bench_preprocess(processor, args.image, args.prompt, args.runs, image_device)
+    input_ms = bench_preprocess(processor, args.image, args.prompt, args.runs, image_device)
     dec = GraphDecoder(model, args.max_new_tokens, args.max_len)
     dec.capture()
 
-    outputs = {}
+    eos = eos_ids(processor.tokenizer)
+    outputs, timing = {}, {}
     outputs["bare"], pre, tpot = bench_bare(model, inputs, args.max_new_tokens, args.runs)
     print(f"{'bare':>5}: prefill {pre:6.1f} ms | decode {tpot:5.2f} ms/token | {1000 / tpot:6.1f} tok/s")
     for mode in ("eager", "graph"):
         ids, pre, tpot = bench(dec, inputs, mode == "graph", args.runs)
         outputs[mode] = ids
+        timing[mode] = (pre, tpot)
         print(f"{mode:>5}: prefill {pre:6.1f} ms | decode {tpot:5.2f} ms/token | {1000 / tpot:6.1f} tok/s")
 
     print("identical outputs (eager vs graph):", outputs["eager"] == outputs["graph"])
     # bare blocks EOS (min_new_tokens), so compare only up to graph's first EOS
-    g = until_eos(outputs["graph"], eos_ids(processor.tokenizer))
+    g = until_eos(outputs["graph"], eos)
     print("bare matches graph up to EOS:", outputs["bare"][:len(g)] == g)
+
+    steps, pre, dec_ms = bench_stop(dec, inputs, eos, args.runs)
+    print(f"graph + stop at EOS: prefill {pre:6.1f} ms | decode {dec_ms:6.1f} ms for {steps} steps")
+    pre_g, tpot_g = timing["graph"]
+    print(
+        f"request (input + prefill + decode), graph: {input_ms + pre_g + tpot_g * args.max_new_tokens:.0f} ms "
+        f"with {args.max_new_tokens} steps | {input_ms + pre + dec_ms:.0f} ms with stop at EOS ({steps} steps)"
+    )
     log_memory("after benchmark")
 
 
