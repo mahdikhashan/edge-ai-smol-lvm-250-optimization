@@ -2,7 +2,7 @@ PYTHON ?= python
 IMAGE ?= frame.jpg
 IMG = $(abspath $(IMAGE))
 
-.PHONY: all run bench attn hybrid
+.PHONY: all run bench attn hybrid preprocess
 
 all: run bench
 
@@ -17,3 +17,6 @@ attn:
 
 hybrid:
 	$(PYTHON) hybrid_attn.py --image $(IMG)
+
+preprocess:
+	$(PYTHON) gpu_preprocess.py --image $(IMG)

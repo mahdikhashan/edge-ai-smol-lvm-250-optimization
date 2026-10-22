@@ -12,6 +12,8 @@ This project makes SmolVLM-256M generate text faster on a GPU. It records one de
 | `smolvlm_256m_attention_check.ipynb` | Notebook for the attention experiment. |
 | `hybrid_attn.py` | Experiment: `sdpa` for prefill and `eager` for decode (`hybrid`), compared with `sdpa` and `eager`. Run with `make hybrid`. |
 | `smolvlm_256m_hybrid_attention.ipynb` | Notebook for the hybrid attention experiment. |
+| `gpu_preprocess.py` | Experiment: image preprocessing with the slow processor, the fast processor on the CPU, and the fast processor on the GPU. Run with `make preprocess`. |
+| `smolvlm_256m_gpu_preprocessing.ipynb` | Notebook for the preprocessing experiment. |
 | `smolvlm_256m_cuda_graph_decoding.ipynb` | Notebook that runs both scripts and shows the results. |
 | `Makefile` | `make run`, `make bench`, or `make` for both. Set the image with `IMAGE=path`. |
 | `CHANGELOG.md` | List of changes. |
