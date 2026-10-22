@@ -36,6 +36,8 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- Notebook `smolvlm_256m_benchmark.ipynb`: added the stop-at-EOS result cell. The request takes 369 ms with the stop against 806 ms with 64 steps.
+- README ranking: re-ranked the open optimizations for the new request time (369 ms, 74% prefill). Prefill items moved up. Frame pipelining and quantization moved down. The hybrid attention row notes the small gain for short answers.
 - Notebook `smolvlm_256m_eos_stop.ipynb`: added the result cell. `stop1` cuts decode from 519 ms to 79 ms for a 9-token answer.
 - README ranking: the stop-at-EOS row moved to the done table. The ranks below it moved up by one.
 - `bench_preprocess` returns the `make_inputs` total in ms.
