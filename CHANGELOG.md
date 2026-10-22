@@ -5,6 +5,7 @@ All notable changes to this project are recorded here, newest first.
 ## 2026-10-22
 
 ### Added
+- `README.md`: project overview, file list, and a ranked table of optimizations (open and done) based on the measured results.
 - `bench.py`: times the CPU preprocessing steps (JPEG decode, tile + normalize, tokenize, and the `make_inputs` total) before the model benchmark.
 - `bench.py`: logs RAM (peak process memory) and VRAM (allocated, peak, reserved) after model load and after the benchmark.
 - `chat_text` helper in `smolvlm_cuda_graphs.py`, shared by `make_inputs` and the benchmark.
