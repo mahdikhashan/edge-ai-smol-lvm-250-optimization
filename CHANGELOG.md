@@ -27,6 +27,8 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- Notebook `smolvlm_256m_attention_check.ipynb`: added a result cell. The default attention is already `sdpa`. `sdpa` is faster in prefill and uses less VRAM, and `eager` is faster in decode.
+- README ranking: rank 7 is now "eager for decode only, sdpa for prefill". The SDPA check moved to the done table.
 - `load()` takes an optional `attn` argument that sets the attention implementation.
 - Notebook result cell: added request-time and memory tables and updated numbers with preprocessing and memory measurements.
 - Renamed `run.ipynb` to `smolvlm_256m_cuda_graph_decoding.ipynb`.

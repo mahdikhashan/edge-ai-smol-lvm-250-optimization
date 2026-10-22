@@ -34,7 +34,7 @@ Time for one request: preprocessing 325 ms, prefill 286 ms, decode 524 ms (8.2 m
 | 4 | Run the VLM only on frames that YOLO flags (distill or fine-tune for the task) | Whole request | Each skipped frame saves all 1135 ms. | Depends on the share of skipped frames | High |
 | 5 | Cache vision embeddings for near-identical frames | Prefill | SigLIP is probably the largest part of the 286 ms prefill (est.). | Most of the prefill for repeated scenes | Medium |
 | 6 | Pipeline frames: the CPU prepares frame N+1 while the GPU runs frame N | Throughput | CPU work takes 325 ms. GPU work takes about 810 ms. | About 1.4 times more frames per second. Latency does not change. | Medium |
-| 7 | Check the SDPA attention implementation | Prefill, decode | Not checked. | Unknown | Low |
+| 7 | Use `eager` attention for decode only and `sdpa` for prefill | Decode | `eager` decode takes 6.45 ms/token. `sdpa` decode takes 8.15 ms/token. The cause is not known. | Up to 1.7 ms for each token (est.) | Medium |
 | 8 | Weight quantization (INT8, INT4) | Decode | Weights use 497 MB. Decode has a fixed cost of about 5.3 ms per token. | Unknown. Profile first. It can lower accuracy. | Medium |
 | 9 | TensorRT engine for SigLIP | Prefill | Prefill takes 286 ms (25% of the request). | Unknown | High |
 | 10 | Token pruning or merging in SigLIP (for example ToMe) | Prefill | Same as rank 9. | Unknown. It can lower accuracy. | Medium |
@@ -54,3 +54,4 @@ Time for one request: preprocessing 325 ms, prefill 286 ms, decode 524 ms (8.2 m
 | CUDA graphs (manual capture; `torch.compile` with `reduce-overhead` is not tried) | Decode | 31.8 ms/token (eager) to 16.7 ms/token at max_len 4096. 1.9 times faster. |
 | Static KV cache with a small `max_len` | Decode | 16.7 ms/token at max_len 4096 to 8.2 ms/token at max_len 1024. 2.0 times faster. |
 | FP16 weights | All | Weights use 497 MB of VRAM. |
+| SDPA attention (already the default for the text and vision models) | Prefill | `sdpa` prefill takes 280 ms. `eager` prefill takes 393 ms. Peak VRAM: 889 MB and 2012 MB. |
