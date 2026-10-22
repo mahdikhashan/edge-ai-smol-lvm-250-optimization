@@ -8,6 +8,7 @@ All notable changes to this project are recorded here, newest first.
 - `GraphDecoder` with `eager` attention: graph capture failed with "Cannot copy between CPU and CUDA tensors". The decode step now passes an explicit 4D mask built on the GPU when the text model uses `eager` attention. The `sdpa` path is unchanged.
 
 ### Added
+- `attn_check.py`: option name `sdpa+mask` runs `sdpa` attention with the decoder's own GPU-built mask (`GraphDecoder(own_mask=True)`), to find out whether the faster `eager` decode comes from the mask or from the attention. New last cell in `smolvlm_256m_attention_check.ipynb` runs it.
 - `attn_check.py` and `smolvlm_256m_attention_check.ipynb`: experiment that reports the attention implementation in use and compares `default`, `eager` and `sdpa` (prefill, graph decode, peak VRAM, answer match). `make attn` runs it.
 - `README.md`: project overview, file list, and a ranked table of optimizations (open and done) based on the measured results.
 - `bench.py`: times the CPU preprocessing steps (JPEG decode, tile + normalize, tokenize, and the `make_inputs` total) before the model benchmark.

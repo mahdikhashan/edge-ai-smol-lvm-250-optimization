@@ -8,11 +8,12 @@ from smolvlm_cuda_graphs import PROMPT, GraphDecoder, eos_ids, load, make_inputs
 
 
 def run(attn, args):
-    model, processor = load(attn=None if attn == "default" else attn)
+    name, _, flag = attn.partition("+")  # "sdpa+mask" = sdpa with the decoder's own mask
+    model, processor = load(attn=None if name == "default" else name)
     cfg = model.config
     used = "/".join(getattr(c, "_attn_implementation", "?") for c in (cfg.text_config, cfg.vision_config))
     inputs = make_inputs(processor, args.image, args.prompt)
-    dec = GraphDecoder(model, args.max_new_tokens, args.max_len)
+    dec = GraphDecoder(model, args.max_new_tokens, args.max_len, own_mask=flag == "mask")
     dec.capture()
     torch.cuda.reset_peak_memory_stats()
     ids, pre, tpot = bench(dec, inputs, True, args.runs)
@@ -34,16 +35,16 @@ def main():
     ap.add_argument("--impls", default="default,eager,sdpa")
     args = ap.parse_args()
 
-    print(f"{'option':<8} {'text/vision':<13} {'prefill ms':>10} {'decode ms/tok':>13} {'peak VRAM MB':>12}  same answer")
+    print(f"{'option':<10} {'text/vision':<13} {'prefill ms':>10} {'decode ms/tok':>13} {'peak VRAM MB':>12}  same answer")
     ref = None
     for attn in args.impls.split(","):
         try:
             used, ids, pre, tpot, peak = run(attn, args)
         except Exception as e:
-            print(f"{attn:<8} failed: {type(e).__name__}: {e}")
+            print(f"{attn:<10} failed: {type(e).__name__}: {e}")
             continue
         ref = ids if ref is None else ref
-        print(f"{attn:<8} {used:<13} {pre:10.1f} {tpot:13.2f} {peak:12.0f}  {ids == ref}")
+        print(f"{attn:<10} {used:<13} {pre:10.1f} {tpot:13.2f} {peak:12.0f}  {ids == ref}")
 
 
 if __name__ == "__main__":

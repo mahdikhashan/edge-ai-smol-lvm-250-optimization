@@ -31,7 +31,7 @@ def make_inputs(processor, image_path, prompt, dtype=torch.float16, device="cuda
 
 
 class GraphDecoder:
-    def __init__(self, model, max_new_tokens=64, max_len=4096):
+    def __init__(self, model, max_new_tokens=64, max_len=4096, own_mask=False):
         self.model = model
         self.max_len = max_len
         self.max_new = max_new_tokens
@@ -44,7 +44,7 @@ class GraphDecoder:
         self.out = torch.zeros(max_new_tokens, dtype=torch.long, device=dev)
         self.graph = None
         # eager attention builds its own mask with a CPU->GPU copy, which CUDA graph capture forbids
-        self.own_mask = model.config.text_config._attn_implementation == "eager"
+        self.own_mask = own_mask or model.config.text_config._attn_implementation == "eager"
 
     def mask(self):
         allowed = torch.arange(self.max_len, device=self.pos.device) <= self.pos[:, None]
