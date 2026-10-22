@@ -8,6 +8,8 @@ All notable changes to this project are recorded here, newest first.
 - `GraphDecoder` with `eager` attention: graph capture failed with "Cannot copy between CPU and CUDA tensors". The decode step now passes an explicit 4D mask built on the GPU when the text model uses `eager` attention. The `sdpa` path is unchanged.
 
 ### Added
+- `bench.py --preprocess {default,slow,fast-cpu,fast-gpu}`: picks the image processor and the device that resizes and normalizes the image. `default` keeps the old behavior. `make bench PREPROCESS=fast-gpu` uses it.
+- `encode` helper and `PREPROCESS` table in `smolvlm_cuda_graphs.py`. `load()` takes `fast`, and `make_inputs()` takes `image_device`. `gpu_preprocess.py` imports `encode` from there.
 - `gpu_preprocess.py` and `smolvlm_256m_gpu_preprocessing.ipynb`: experiment that compares the slow image processor, the fast processor on the CPU and the fast processor on the GPU (tile + normalize time, total input time, peak VRAM, pixel difference, answer match). `make preprocess` runs it.
 - `hybrid_attn.py` and `smolvlm_256m_hybrid_attention.ipynb`: experiment that captures the decode graph with `eager` attention and runs the prefill with `sdpa`, compared with plain `sdpa` and plain `eager` (prefill, decode, total time, peak VRAM, answer match). `make hybrid` runs it.
 - `attn_check.py`: option name `sdpa+mask` runs `sdpa` attention with the decoder's own GPU-built mask (`GraphDecoder(own_mask=True)`), to find out whether the faster `eager` decode comes from the mask or from the attention. New last cell in `smolvlm_256m_attention_check.ipynb` runs it.
@@ -30,6 +32,7 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- `bench.mean_ms` synchronizes the GPU after each call, so GPU preprocessing steps are timed correctly.
 - Notebook `smolvlm_256m_gpu_preprocessing.ipynb`: added the result cell. The fast processor on the GPU prepares the input in 11.6 ms against 299 ms for the slow processor.
 - README ranking: the GPU preprocessing row moved to the done table. The ranks below it moved up by one.
 - Notebook `smolvlm_256m_hybrid_attention.ipynb`: added the result cell. The hybrid takes 700 ms for 64 tokens against 796 ms for `sdpa` and 808 ms for `eager`.

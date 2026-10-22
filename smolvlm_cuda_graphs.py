@@ -4,11 +4,13 @@ from transformers import AutoModelForImageTextToText, AutoProcessor, StaticCache
 
 MODEL_ID = "HuggingFaceTB/SmolVLM-256M-Instruct"
 PROMPT = "Describe any visible defects."
+# name -> (use_fast for the image processor, device that resizes and normalizes the image)
+PREPROCESS = {"default": (None, "cpu"), "slow": (False, "cpu"), "fast-cpu": (True, "cpu"), "fast-gpu": (True, "cuda")}
 
 
-def load(dtype=torch.float16, device="cuda", attn=None):
+def load(dtype=torch.float16, device="cuda", attn=None, fast=None):
     kwargs = {} if attn is None else {"attn_implementation": attn}
-    processor = AutoProcessor.from_pretrained(MODEL_ID)
+    processor = AutoProcessor.from_pretrained(MODEL_ID, **({} if fast is None else {"use_fast": fast}))
     model = AutoModelForImageTextToText.from_pretrained(MODEL_ID, dtype=dtype, **kwargs).to(device).eval()
     return model, processor
 
@@ -22,10 +24,18 @@ def chat_text(processor, prompt):
     return processor.apply_chat_template(messages, add_generation_prompt=True)
 
 
-def make_inputs(processor, image_path, prompt, dtype=torch.float16, device="cuda"):
+def encode(processor, text, image, image_device="cpu"):
+    kw = {} if image_device == "cpu" else {"device": image_device}
+    try:
+        return processor(text=text, images=[image], return_tensors="pt", images_kwargs=kw)
+    except (TypeError, ValueError):
+        return processor(text=text, images=[image], return_tensors="pt", **kw)
+
+
+def make_inputs(processor, image_path, prompt, dtype=torch.float16, device="cuda", image_device="cpu"):
     text = chat_text(processor, prompt)
     image = Image.open(image_path).convert("RGB")
-    inputs = processor(text=text, images=[image], return_tensors="pt").to(device)
+    inputs = encode(processor, text, image, image_device).to(device)
     inputs["pixel_values"] = inputs["pixel_values"].to(dtype)
     return inputs
 

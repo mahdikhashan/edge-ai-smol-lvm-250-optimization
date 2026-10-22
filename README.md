@@ -7,7 +7,7 @@ This project makes SmolVLM-256M generate text faster on a GPU. It records one de
 | File | Use |
 |---|---|
 | `smolvlm_cuda_graphs.py` | Graph decoder. Run it on one image to get an answer. |
-| `bench.py` | Benchmark: bare model, eager decoding, graph decoding. Also times CPU preprocessing and logs memory. |
+| `bench.py` | Benchmark: bare model, eager decoding, graph decoding. Also times preprocessing and logs memory. `--preprocess` sets the image processor: `default`, `slow`, `fast-cpu` or `fast-gpu`. |
 | `attn_check.py` | Experiment: compares attention implementations (default, `eager`, `sdpa`, `sdpa+mask`). Run with `make attn`. |
 | `smolvlm_256m_attention_check.ipynb` | Notebook for the attention experiment. |
 | `hybrid_attn.py` | Experiment: `sdpa` for prefill and `eager` for decode (`hybrid`), compared with `sdpa` and `eager`. Run with `make hybrid`. |

@@ -5,7 +5,7 @@ import time
 import torch
 from PIL import Image
 
-from smolvlm_cuda_graphs import PROMPT, GraphDecoder, chat_text, eos_ids, load, make_inputs
+from smolvlm_cuda_graphs import PREPROCESS, PROMPT, GraphDecoder, chat_text, eos_ids, load, make_inputs
 
 
 def timed(fn):
@@ -17,23 +17,28 @@ def timed(fn):
 
 
 def mean_ms(fn, runs):
-    fn()  # warm-up
+    def run():
+        fn()
+        torch.cuda.synchronize()
+
+    run()  # warm-up
     t = time.perf_counter()
     for _ in range(runs):
-        fn()
+        run()
     return (time.perf_counter() - t) * 1e3 / runs
 
 
-def bench_preprocess(processor, path, prompt, runs):
+def bench_preprocess(processor, path, prompt, runs, image_device="cpu"):
     text = chat_text(processor, prompt)
     image = Image.open(path).convert("RGB")
+    kw = {} if image_device == "cpu" else {"device": image_device}
     steps = {
         "JPEG decode": lambda: Image.open(path).convert("RGB"),
-        "tile + normalize": lambda: processor.image_processor(images=[image], return_tensors="pt"),
+        "tile + normalize": lambda: processor.image_processor(images=[image], return_tensors="pt", **kw),
         "tokenize": lambda: processor.tokenizer(text, return_tensors="pt"),
-        "make_inputs total (incl. copy to GPU)": lambda: make_inputs(processor, path, prompt),
+        "make_inputs total (incl. copy to GPU)": lambda: make_inputs(processor, path, prompt, image_device=image_device),
     }
-    print("preprocessing (CPU):")
+    print(f"preprocessing (JPEG decode and tokenize on CPU, tile + normalize on {image_device.upper()}):")
     for name, fn in steps.items():
         print(f"  {name:<38} {mean_ms(fn, runs):7.1f} ms")
 
@@ -88,13 +93,16 @@ def main():
     ap.add_argument("--max-new-tokens", type=int, default=64)
     ap.add_argument("--max-len", type=int, default=4096)
     ap.add_argument("--runs", type=int, default=5)
+    ap.add_argument("--preprocess", choices=PREPROCESS, default="default")
     args = ap.parse_args()
 
-    model, processor = load()
+    fast, image_device = PREPROCESS[args.preprocess]
+    model, processor = load(fast=fast)
+    print(f"preprocess: {args.preprocess} ({type(processor.image_processor).__name__}, image on {image_device})")
     log_memory("after load")
-    inputs = make_inputs(processor, args.image, args.prompt)
+    inputs = make_inputs(processor, args.image, args.prompt, image_device=image_device)
     print(f"prompt tokens: {inputs['input_ids'].shape[1]} | max_len: {args.max_len}")
-    bench_preprocess(processor, args.image, args.prompt, args.runs)
+    bench_preprocess(processor, args.image, args.prompt, args.runs, image_device)
     dec = GraphDecoder(model, args.max_new_tokens, args.max_len)
     dec.capture()
 

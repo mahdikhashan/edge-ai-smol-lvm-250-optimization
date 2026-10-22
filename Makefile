@@ -1,5 +1,6 @@
 PYTHON ?= python
 IMAGE ?= frame.jpg
+PREPROCESS ?= default
 IMG = $(abspath $(IMAGE))
 
 .PHONY: all run bench attn hybrid preprocess
@@ -10,7 +11,7 @@ run:
 	$(PYTHON) smolvlm_cuda_graphs.py $(IMG)
 
 bench:
-	$(PYTHON) bench.py --image $(IMG)
+	$(PYTHON) bench.py --image $(IMG) --preprocess $(PREPROCESS)
 
 attn:
 	$(PYTHON) attn_check.py --image $(IMG)

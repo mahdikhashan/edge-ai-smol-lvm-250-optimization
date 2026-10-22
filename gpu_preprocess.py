@@ -5,7 +5,7 @@ from PIL import Image
 from transformers import AutoProcessor
 
 from bench import mean_ms
-from smolvlm_cuda_graphs import MODEL_ID, PROMPT, GraphDecoder, chat_text, eos_ids, load
+from smolvlm_cuda_graphs import MODEL_ID, PROMPT, GraphDecoder, chat_text, encode, eos_ids, load
 
 OPTIONS = {"slow": (False, "cpu"), "fast-cpu": (True, "cpu"), "fast-gpu": (True, "cuda")}
 
@@ -17,14 +17,6 @@ def synced(fn):
         return out
 
     return run
-
-
-def encode(processor, text, image, device):
-    kw = {} if device == "cpu" else {"device": device}
-    try:
-        return processor(text=text, images=[image], return_tensors="pt", images_kwargs=kw)
-    except (TypeError, ValueError):
-        return processor(text=text, images=[image], return_tensors="pt", **kw)
 
 
 def make(processor, path, text, device):
