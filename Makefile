@@ -3,7 +3,7 @@ IMAGE ?= frame.jpg
 PREPROCESS ?= default
 IMG = $(abspath $(IMAGE))
 
-.PHONY: all run bench attn hybrid preprocess eos prefill
+.PHONY: all run bench attn hybrid preprocess eos prefill trt
 
 all: run bench
 
@@ -27,3 +27,6 @@ eos:
 
 prefill:
 	$(PYTHON) prefill_profile.py --image $(IMG)
+
+trt:
+	$(PYTHON) trt_siglip.py --image $(IMG)

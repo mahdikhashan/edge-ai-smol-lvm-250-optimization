@@ -8,6 +8,7 @@ All notable changes to this project are recorded here, newest first.
 - `GraphDecoder` with `eager` attention: graph capture failed with "Cannot copy between CPU and CUDA tensors". The decode step now passes an explicit 4D mask built on the GPU when the text model uses `eager` attention. The `sdpa` path is unchanged.
 
 ### Added
+- `trt_siglip.py` and `smolvlm_256m_trt_siglip.ipynb`: experiment that exports the SigLIP encoder to ONNX, builds an FP16 TensorRT engine (`trtexec`, or the Python API if `trtexec` is not found), swaps it into the model, and compares prefill time, SigLIP time, encoder output difference and answer against PyTorch. `make trt` runs it. `.gitignore` ignores the ONNX and engine files.
 - `prefill_profile.py` and `smolvlm_256m_prefill_profile.ipynb`: experiment that measures the share of the prefill time used by SigLIP, the connector, the decoder and the LM head (CUDA events), for the default tiling and with no image splitting. It also prints the time saved if SigLIP were faster. `make prefill` runs it.
 - `smolvlm_256m_benchmark.ipynb`: new last cell runs the benchmark with `fast-gpu` and prints the input time, the graph timing, and the request time with 64 steps and with stop at EOS.
 - `GraphDecoder.decode(eos=...)` stops after the step that makes an EOS token (check after every step). `generate` uses it. `bench.py` prints a `graph + stop at EOS` line and the request time with 64 steps and with the stop.

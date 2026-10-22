@@ -19,6 +19,8 @@ This project makes SmolVLM-256M generate text faster on a GPU. It records one de
 | `smolvlm_256m_eos_stop.ipynb` | Notebook for the EOS experiment. |
 | `prefill_profile.py` | Experiment: splits the prefill time into SigLIP, connector, decoder and LM head, for the default tiling and with no image splitting. Run with `make prefill`. |
 | `smolvlm_256m_prefill_profile.ipynb` | Notebook for the prefill profile. |
+| `trt_siglip.py` | Experiment: exports the SigLIP encoder to ONNX, builds an FP16 TensorRT engine, and swaps it into the model. Run with `make trt`. |
+| `smolvlm_256m_trt_siglip.ipynb` | Notebook for the TensorRT experiment. |
 | `smolvlm_256m_cuda_graph_decoding.ipynb` | Notebook that runs both scripts and shows the results. |
 | `Makefile` | `make run`, `make bench`, or `make` for both. Set the image with `IMAGE=path`. |
 | `CHANGELOG.md` | List of changes. |

@@ -1,2 +1,5 @@
 __pycache__/
 GH_TOKEN
+trt_siglip/
+*.onnx
+*.engine
