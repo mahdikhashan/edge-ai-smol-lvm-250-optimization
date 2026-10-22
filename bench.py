@@ -1,6 +1,7 @@
 import argparse
 import resource
 import time
+from pathlib import Path
 
 import torch
 from PIL import Image
@@ -28,15 +29,17 @@ def mean_ms(fn, runs):
     return (time.perf_counter() - t) * 1e3 / runs
 
 
-def bench_preprocess(processor, path, prompt, runs, image_device="cpu"):
+def bench_preprocess(processor, path, prompt, runs, image_device="cpu", size=None):
     text = chat_text(processor, prompt)
     image = Image.open(path).convert("RGB")
     kw = {} if image_device == "cpu" else {"device": image_device}
+    if size is not None:
+        kw["size"] = {"longest_edge": size}
     steps = {
         "JPEG decode": lambda: Image.open(path).convert("RGB"),
         "tile + normalize": lambda: processor.image_processor(images=[image], return_tensors="pt", **kw),
         "tokenize": lambda: processor.tokenizer(text, return_tensors="pt"),
-        "make_inputs total (incl. copy to GPU)": lambda: make_inputs(processor, path, prompt, image_device=image_device),
+        "make_inputs total (incl. copy to GPU)": lambda: make_inputs(processor, path, prompt, image_device=image_device, size=size),
     }
     print(f"preprocessing (JPEG decode and tokenize on CPU, tile + normalize on {image_device.upper()}):")
     for name, fn in steps.items():
@@ -76,6 +79,23 @@ def bench_stop(dec, inputs, eos, runs):
     return dec.steps, sum(prefill) / runs, sum(decode) / runs
 
 
+def load_trt(model, inputs, workdir="trt_siglip"):
+    """Build (or load) the TensorRT engine for the SigLIP encoder. The engine has a fixed tile count."""
+    from trt_siglip import TrtEncoder, TrtVision, build_engine, capture_encoder_input, check_packages, export_onnx
+
+    check_packages()
+    x = capture_encoder_input(model, inputs)
+    work = Path(workdir)
+    work.mkdir(exist_ok=True)
+    onnx, engine = work / f"siglip_{x.shape[0]}tiles.onnx", work / f"siglip_{x.shape[0]}tiles.engine"
+    if engine.exists():
+        print(f"TensorRT engine loaded: {engine}")
+    else:
+        export_onnx(model, x, onnx)
+        print(f"TensorRT engine built: {engine} ({build_engine(onnx, engine)})")
+    return TrtVision(model.model.vision_model, TrtEncoder(engine))
+
+
 def bench_bare(model, inputs, n, runs):
     def gen(k):
         return model.generate(**inputs, max_new_tokens=k, min_new_tokens=k, do_sample=False)
@@ -107,15 +127,20 @@ def main():
     ap.add_argument("--max-len", type=int, default=4096)
     ap.add_argument("--runs", type=int, default=5)
     ap.add_argument("--preprocess", choices=PREPROCESS, default="default")
+    ap.add_argument("--size", type=int, default=None, help="resize the longest image side to this many pixels (fewer tiles)")
+    ap.add_argument("--trt", action="store_true", help="also run with a TensorRT engine for the SigLIP encoder")
     args = ap.parse_args()
 
     fast, image_device = PREPROCESS[args.preprocess]
     model, processor = load(fast=fast)
     print(f"preprocess: {args.preprocess} ({type(processor.image_processor).__name__}, image on {image_device})")
     log_memory("after load")
-    inputs = make_inputs(processor, args.image, args.prompt, image_device=image_device)
-    print(f"prompt tokens: {inputs['input_ids'].shape[1]} | max_len: {args.max_len}")
-    input_ms = bench_preprocess(processor, args.image, args.prompt, args.runs, image_device)
+    inputs = make_inputs(processor, args.image, args.prompt, image_device=image_device, size=args.size)
+    print(
+        f"prompt tokens: {inputs['input_ids'].shape[1]} ({inputs['pixel_values'].shape[1]} tiles) | max_len: {args.max_len} "
+        f"| size: {args.size or 'default'}"
+    )
+    input_ms = bench_preprocess(processor, args.image, args.prompt, args.runs, image_device, args.size)
     dec = GraphDecoder(model, args.max_new_tokens, args.max_len)
     dec.capture()
 
@@ -141,6 +166,19 @@ def main():
         f"request (input + prefill + decode), graph: {input_ms + pre_g + tpot_g * args.max_new_tokens:.0f} ms "
         f"with {args.max_new_tokens} steps | {input_ms + pre + dec_ms:.0f} ms with stop at EOS ({steps} steps)"
     )
+
+    if args.trt:
+        ids = dec.generate(inputs, eos)
+        orig = model.model.vision_model
+        model.model.vision_model = load_trt(model, inputs)
+        steps_t, pre_t, dec_t = bench_stop(dec, inputs, eos, args.runs)
+        same = dec.generate(inputs, eos) == ids
+        model.model.vision_model = orig
+        print(f"graph + stop at EOS + TensorRT SigLIP: prefill {pre_t:6.1f} ms | decode {dec_t:6.1f} ms for {steps_t} steps")
+        print(
+            f"request (input + prefill + decode), stop at EOS + TensorRT: {input_ms + pre_t + dec_t:.0f} ms "
+            f"({input_ms + pre + dec_ms:.0f} ms without TensorRT) | same answer: {same}"
+        )
     log_memory("after benchmark")
 
 

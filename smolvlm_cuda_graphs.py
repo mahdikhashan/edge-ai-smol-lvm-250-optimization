@@ -24,18 +24,20 @@ def chat_text(processor, prompt):
     return processor.apply_chat_template(messages, add_generation_prompt=True)
 
 
-def encode(processor, text, image, image_device="cpu"):
-    kw = {} if image_device == "cpu" else {"device": image_device}
+def encode(processor, text, image, image_device="cpu", image_kwargs=None):
+    kw = dict(image_kwargs or {}, **({} if image_device == "cpu" else {"device": image_device}))
     try:
         return processor(text=text, images=[image], return_tensors="pt", images_kwargs=kw)
     except (TypeError, ValueError):
         return processor(text=text, images=[image], return_tensors="pt", **kw)
 
 
-def make_inputs(processor, image_path, prompt, dtype=torch.float16, device="cuda", image_device="cpu"):
+def make_inputs(processor, image_path, prompt, dtype=torch.float16, device="cuda", image_device="cpu", size=None):
+    """size: resize the longest side of the image to this many pixels before it is cut into tiles (None = default)."""
     text = chat_text(processor, prompt)
     image = Image.open(image_path).convert("RGB")
-    inputs = encode(processor, text, image, image_device).to(device)
+    image_kwargs = None if size is None else {"size": {"longest_edge": size}}
+    inputs = encode(processor, text, image, image_device, image_kwargs).to(device)
     inputs["pixel_values"] = inputs["pixel_values"].to(dtype)
     return inputs
 
