@@ -5,6 +5,7 @@ All notable changes to this project are recorded here, newest first.
 ## 2026-10-22
 
 ### Added
+- `attn_check.py` and `smolvlm_256m_attention_check.ipynb`: experiment that reports the attention implementation in use and compares `default`, `eager` and `sdpa` (prefill, graph decode, peak VRAM, answer match). `make attn` runs it.
 - `README.md`: project overview, file list, and a ranked table of optimizations (open and done) based on the measured results.
 - `bench.py`: times the CPU preprocessing steps (JPEG decode, tile + normalize, tokenize, and the `make_inputs` total) before the model benchmark.
 - `bench.py`: logs RAM (peak process memory) and VRAM (allocated, peak, reserved) after model load and after the benchmark.
@@ -23,6 +24,7 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- `load()` takes an optional `attn` argument that sets the attention implementation.
 - Notebook result cell: added request-time and memory tables and updated numbers with preprocessing and memory measurements.
 - Renamed `run.ipynb` to `smolvlm_256m_cuda_graph_decoding.ipynb`.
 - `bench.py`: the bare-vs-graph output check now compares only up to the first EOS, because the bare run blocks EOS to force a fixed token count.

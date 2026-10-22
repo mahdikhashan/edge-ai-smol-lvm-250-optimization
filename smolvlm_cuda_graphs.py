@@ -6,9 +6,10 @@ MODEL_ID = "HuggingFaceTB/SmolVLM-256M-Instruct"
 PROMPT = "Describe any visible defects."
 
 
-def load(dtype=torch.float16, device="cuda"):
+def load(dtype=torch.float16, device="cuda", attn=None):
+    kwargs = {} if attn is None else {"attn_implementation": attn}
     processor = AutoProcessor.from_pretrained(MODEL_ID)
-    model = AutoModelForImageTextToText.from_pretrained(MODEL_ID, dtype=dtype).to(device).eval()
+    model = AutoModelForImageTextToText.from_pretrained(MODEL_ID, dtype=dtype, **kwargs).to(device).eval()
     return model, processor
 
 
