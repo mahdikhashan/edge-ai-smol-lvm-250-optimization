@@ -14,6 +14,8 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- `run.ipynb`: first two cells now display `frame.jpg` and print the prompt used by the script.
+- Prompt is a single `PROMPT` constant in `smolvlm_cuda_graphs.py`, shared by the script and `bench.py`.
 - Moved scripts from `scripts/` to the repo root; updated the Makefile and notebook paths.
 - `generate` now stops at the first EOS or `<end_of_utterance>` token, removing junk output after the answer.
 - Use the `dtype` argument instead of the deprecated `torch_dtype`.

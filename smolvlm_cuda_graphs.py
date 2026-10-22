@@ -3,6 +3,7 @@ from PIL import Image
 from transformers import AutoModelForImageTextToText, AutoProcessor, StaticCache
 
 MODEL_ID = "HuggingFaceTB/SmolVLM-256M-Instruct"
+PROMPT = "Describe any visible defects."
 
 
 def load(dtype=torch.float16, device="cuda"):
@@ -95,7 +96,7 @@ if __name__ == "__main__":
     import sys
 
     model, processor = load()
-    inputs = make_inputs(processor, sys.argv[1], "Describe any visible defects.")
+    inputs = make_inputs(processor, sys.argv[1], PROMPT)
     dec = GraphDecoder(model)
     dec.capture()
     tok = processor.tokenizer

@@ -3,7 +3,7 @@ import time
 
 import torch
 
-from smolvlm_cuda_graphs import GraphDecoder, load, make_inputs
+from smolvlm_cuda_graphs import PROMPT, GraphDecoder, load, make_inputs
 
 
 def timed(fn):
@@ -28,7 +28,7 @@ def bench(dec, inputs, use_graph, runs):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--image", required=True)
-    ap.add_argument("--prompt", default="Describe any visible defects.")
+    ap.add_argument("--prompt", default=PROMPT)
     ap.add_argument("--max-new-tokens", type=int, default=64)
     ap.add_argument("--runs", type=int, default=5)
     args = ap.parse_args()
