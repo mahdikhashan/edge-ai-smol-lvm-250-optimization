@@ -109,7 +109,16 @@ def build_engine(onnx, engine):
     return "python API"
 
 
+def check_packages():
+    for pkg in ("onnx", "tensorrt"):
+        try:
+            __import__(pkg)
+        except ImportError:
+            raise SystemExit(f"missing Python package: pip install {pkg}")
+
+
 def main():
+    check_packages()
     ap = argparse.ArgumentParser()
     ap.add_argument("--image", required=True)
     ap.add_argument("--prompt", default=PROMPT)

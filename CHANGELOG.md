@@ -5,6 +5,7 @@ All notable changes to this project are recorded here, newest first.
 ## 2026-10-22
 
 ### Fixed
+- `trt_siglip.py`: the ONNX export failed with "Module onnx is not installed". The notebook now installs `onnx` with `tensorrt`, and the script stops at the start with a clear message if either package is missing.
 - `GraphDecoder` with `eager` attention: graph capture failed with "Cannot copy between CPU and CUDA tensors". The decode step now passes an explicit 4D mask built on the GPU when the text model uses `eager` attention. The `sdpa` path is unchanged.
 
 ### Added
