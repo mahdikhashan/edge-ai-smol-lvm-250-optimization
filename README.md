@@ -129,4 +129,6 @@ The EVLM paper (Farahani et al., EDGE 2026) uses two public datasets (its Sectio
 - The paper does not name the UZH folders. Our mapping: forest = `powerline_1_forest`, city1 = `powerlines_16_city` (start of the flight; the middle is grass), mountain = `powerline_7_mountain`, city2 = `powerline_5_japan`, sand = `powerline_3_sand`, warehouse = `powerline_11_warehouse`, wasteland = `powerline_4_wasteland`, industrial = `powerline_2_industrial`.
 - InsPLAD-fault has no test split. `evlm_eval.py` uses the `val` split.
 - A first check on the clips (CPU only, on a Mac): the histogram filter (512 bins, threshold 0.95) keeps 1 to 2 key frames per 4 s clip and takes about 2.3 ms per frame. PNG decode takes about 7 ms per frame.
-- We use the base model. The paper fine-tunes it with LoRA, and those weights are not public.
+- We use the base model. The paper fine-tunes it with LoRA, and those weights are not public. LoRA does not change the speed after the weights are merged, so the latency can be compared.
+- To compare with the paper, run on the Jetson Orin and compare the time for each VLM call (paper: about 6.448 s / 3.45 calls = 1.87 s, our estimate from Table V), the tokens per answer and the decode ms per token. Do not compare the time for each segment directly: the number of key frames changes it. The notebook's last cell does this for a paper-like baseline and the best setup.
+- The segment time in `evlm_eval.py` is the filter time plus the VLM calls. PNG decode (about 7-10 ms per frame on a Mac CPU) is reported apart, because the paper decodes video.

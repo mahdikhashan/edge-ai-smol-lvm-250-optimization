@@ -45,6 +45,8 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- `evlm_eval.py`: reports prefill ms, tokens per answer and decode ms per token for each VLM call (for `--decode bare`, a separate one-token `generate` call measures the prefill). The clip segment time leaves out PNG decode, which is reported apart. Summary field `vlm_ms_per_key` is now `vlm_ms_per_call`.
+- `smolvlm_256m_evlm_eval.ipynb`: the ablation table shows tokens and ms per token. New last cells compare a paper-like baseline and the best setup with the paper's Table V numbers (run on the Jetson Orin).
 - `trt_siglip.export_onnx` takes an optional `vision` module.
 - Notebook `smolvlm_256m_benchmark.ipynb`: added the result cell for 5 tiles with TensorRT. The request takes 159 ms (173 ms without TensorRT, 369 ms with 13 tiles).
 - `make_inputs` and `encode` in `smolvlm_cuda_graphs.py` take `size` / `image_kwargs` for the tile setting.

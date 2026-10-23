@@ -2,7 +2,8 @@
 
 Two benchmarks on the data from get_data.py:
 - clips:   4 s power line clips (120 frames, 720x480). Histogram frame filtering, then the VLM on each key frame.
-           Reports key frames, filter time, VLM time and segment latency (like the paper's Table V).
+           Reports key frames, filter time, VLM time per call, tokens per answer, decode ms per token, and the
+           segment latency (filter + VLM, like the paper's Table V; PNG decode is reported apart).
 - insplad: InsPLAD-fault crops. The two prompts of the paper's Table III (component and rust), scored on the labels.
 
 Every speed-up is a flag, so one script covers the ablation. The defaults are the best setup:
@@ -91,24 +92,43 @@ class Runner:
         return self.dec
 
     def answer(self, inputs):
+        """Returns (answer ids, prefill ms, decode ms, VLM ms). Decode = the steps after the first token."""
         n = inputs["input_ids"].shape[1]
         if self.decode == "bare":
-            extra = {} if self.stop else {"min_new_tokens": self.max_new}
-            with torch.inference_mode():
-                out = self.model.generate(**inputs, max_new_tokens=self.max_new, do_sample=False, **extra)
-            ids = out[0, n:].tolist()
+            def generate(k, **extra):
+                with torch.inference_mode():
+                    return self.model.generate(**inputs, max_new_tokens=k, do_sample=False, **extra)
+
+            # generate() cannot time its phases, so a separate one-token call measures the prefill
+            _, prefill_ms = timed(lambda: generate(1))
+            out, vlm_ms = timed(lambda: generate(self.max_new, **({} if self.stop else {"min_new_tokens": self.max_new})))
+            ids, decode_ms = out[0, n:].tolist(), max(vlm_ms - prefill_ms, 0.0)
         else:
             dec = self.decoder(n)
-            first = dec.prefill(inputs)
-            out = dec.decode(self.decode == "graph", self.eos if self.stop else None)
-            ids = torch.cat([first.view(1), out]).tolist()
-        return until_eos(ids, self.eos)
+            first, prefill_ms = timed(lambda: dec.prefill(inputs))
+            out, decode_ms = timed(lambda: dec.decode(self.decode == "graph", self.eos if self.stop else None))
+            ids, vlm_ms = torch.cat([first.view(1), out]).tolist(), prefill_ms + decode_ms
+        return until_eos(ids, self.eos), prefill_ms, decode_ms, vlm_ms
 
     def ask(self, image, prompt):
-        """Returns (answer text, input ms, VLM ms)."""
-        inputs, prep_ms = timed(lambda: self.make(image, prompt))
-        ids, vlm_ms = timed(lambda: self.answer(inputs))
-        return self.processor.tokenizer.decode(ids, skip_special_tokens=True).strip(), prep_ms, vlm_ms
+        """Answer text, token count and times (ms) for one image and prompt."""
+        inputs, input_ms = timed(lambda: self.make(image, prompt))
+        ids, prefill_ms, decode_ms, vlm_ms = self.answer(inputs)
+        text = self.processor.tokenizer.decode(ids, skip_special_tokens=True).strip()
+        return {"answer": text, "tokens": len(ids), "input_ms": input_ms, "prefill_ms": prefill_ms,
+                "decode_ms": decode_ms, "vlm_ms": vlm_ms}
+
+
+def per_token(calls):
+    """Decode ms per generated token: the decode runs one step for each answer token (the last step makes EOS)."""
+    return sum(c["decode_ms"] for c in calls) / max(sum(c["tokens"] for c in calls), 1)
+
+
+def call_stats(calls):
+    return {"vlm_ms_per_call": round(float(np.mean([c["input_ms"] + c["vlm_ms"] for c in calls])), 1),
+            "prefill_ms": round(float(np.mean([c["prefill_ms"] for c in calls])), 1),
+            "tokens_per_answer": round(float(np.mean([c["tokens"] for c in calls])), 2),
+            "decode_ms_per_token": round(per_token(calls), 2)}
 
 
 def histogram(arr):
@@ -126,8 +146,11 @@ def run_clips(runner, args, log):
         raise SystemExit(f"no clips in {root}: run get_data.py --what clips")
     runner.ask(Image.open(next(clips[0].glob("*.png"))).convert("RGB"), args.prompt)  # warm-up: graph capture, engine
 
-    print(f"{'clip':<20} {'frames':>6} {'key':>4} {'decode ms/f':>11} {'filter ms/f':>11} {'VLM ms/key':>10} {'segment s':>9}  answer")
-    rows = []
+    print(
+        f"{'clip':<20} {'frames':>6} {'key':>4} {'png ms/f':>8} {'filter ms/f':>11} {'VLM ms/call':>11} "
+        f"{'prefill ms':>10} {'tokens':>6} {'ms/token':>8} {'segment s':>9}  answer"
+    )
+    rows, all_calls = [], []
     for clip in clips:
         frames = sorted(clip.glob("*.png"))
         keys, prev, t_decode, t_filter = [], None, 0.0, 0.0
@@ -146,21 +169,26 @@ def run_clips(runner, args, log):
             t_filter += time.perf_counter() - t
             if keep:
                 keys.append((i, image))
-        vlm = []
-        for i, image in keys:
-            text, prep_ms, vlm_ms = runner.ask(image, args.prompt)
-            vlm.append(prep_ms + vlm_ms)
-            log({"task": "clips", "clip": f"{clip.parent.name}/{clip.name}", "frame": i, "prompt": args.prompt,
-                 "answer": text, "input_ms": prep_ms, "vlm_ms": vlm_ms})
-        segment = t_decode + t_filter + sum(vlm) / 1e3
-        rows.append((len(frames), len(keys), sum(vlm) / len(vlm), segment))
         name = f"{clip.parent.name}/{clip.name}"
+        calls = []
+        for i, image in keys:
+            c = runner.ask(image, args.prompt)
+            calls.append(c)
+            log({"task": "clips", "clip": name, "frame": i, "prompt": args.prompt, **c})
+        all_calls += calls
+        # PNG decode is left out: it comes from how the dataset is stored (the paper decodes video)
+        segment = t_filter + sum(c["input_ms"] + c["vlm_ms"] for c in calls) / 1e3
+        rows.append((len(keys), segment, t_filter, t_decode))
+        st = call_stats(calls)
         print(
-            f"{name:<20} {len(frames):6d} {len(keys):4d} {1e3 * t_decode / len(frames):11.2f} "
-            f"{1e3 * t_filter / len(frames):11.2f} {sum(vlm) / len(vlm):10.1f} {segment:9.2f}  {text[:50]}"
+            f"{name:<20} {len(frames):6d} {len(keys):4d} {1e3 * t_decode / len(frames):8.2f} "
+            f"{1e3 * t_filter / len(frames):11.2f} {st['vlm_ms_per_call']:11.1f} {st['prefill_ms']:10.1f} "
+            f"{st['tokens_per_answer']:6.1f} {st['decode_ms_per_token']:8.2f} {segment:9.2f}  {calls[-1]['answer'][:40]}"
         )
-    key, vlm_ms, seg = (float(np.mean([r[i] for r in rows])) for i in (1, 2, 3))
-    return {"clips": len(rows), "key_frames": round(key, 2), "vlm_ms_per_key": round(vlm_ms, 1), "segment_s": round(seg, 3)}
+    return {"clips": len(rows), "key_frames": round(float(np.mean([r[0] for r in rows])), 2), **call_stats(all_calls),
+            "filter_s_per_segment": round(float(np.mean([r[2] for r in rows])), 3),
+            "png_decode_s_per_segment": round(float(np.mean([r[3] for r in rows])), 3),
+            "segment_s": round(float(np.mean([r[1] for r in rows])), 3)}
 
 
 def insplad_samples(root, limit):
@@ -185,18 +213,17 @@ def run_insplad(runner, args, log):
         raise SystemExit("no InsPLAD images: run get_data.py --what insplad")
     runner.ask(Image.open(samples[0][2]).convert("RGB"), COMPONENT_PROMPT)  # warm-up
 
-    comp, rust, times = {}, {}, []
+    comp, rust, calls = {}, {}, []
     for asset, label, path in samples:
         image = Image.open(path).convert("RGB")
-        c_text, c_prep, c_vlm = runner.ask(image, COMPONENT_PROMPT)
-        r_text, r_prep, r_vlm = runner.ask(image, RUST_PROMPT)
+        c, r = runner.ask(image, COMPONENT_PROMPT), runner.ask(image, RUST_PROMPT)
+        c_text, r_text = c["answer"], r["answer"]
         words = [w for w in asset.lower().replace("_", "-").split("-") if len(w) > 3 and w != "upper"]
         comp.setdefault(asset, []).append(any(w in c_text.lower() for w in words))
         if label.lower() in ("good", "rust"):
             rust.setdefault(asset, []).append(says_yes(r_text) == (label.lower() == "rust"))
-        times += [c_prep + c_vlm, r_prep + r_vlm]
-        log({"task": "insplad", "asset": asset, "label": label, "image": str(path), "component_answer": c_text,
-             "rust_answer": r_text, "ms": [c_prep + c_vlm, r_prep + r_vlm]})
+        calls += [c, r]
+        log({"task": "insplad", "asset": asset, "label": label, "image": str(path), "component": c, "rust": r})
 
     print(f"{'asset':<34} {'n':>4} {'component acc':>13} {'rust n':>6} {'rust acc':>8}")
     for asset in comp:
@@ -204,7 +231,7 @@ def run_insplad(runner, args, log):
         print(f"{asset:<34} {len(comp[asset]):4d} {np.mean(comp[asset]):13.2f} {len(r):6d} {np.mean(r) if r else float('nan'):8.2f}")
     all_c, all_r = sum(comp.values(), []), sum(rust.values(), [])
     return {"samples": len(samples), "component_acc": round(float(np.mean(all_c)), 3),
-            "rust_acc": round(float(np.mean(all_r)), 3) if all_r else None, "ms_per_prompt": round(float(np.mean(times)), 1)}
+            "rust_acc": round(float(np.mean(all_r)), 3) if all_r else None, **call_stats(calls)}
 
 
 def main():
