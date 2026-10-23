@@ -45,6 +45,7 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- README: rewritten in a short style (title, setup and run, experiments, results, debug, documentation), without images. The long sections moved unchanged to `docs/`: `FILES.md`, `RANKING.md`, `PREFILL_PROFILE.md`, `TENSORRT.md` and `EVLM.md`.
 - README: added the EVLM ablation results (best setup 6.1 times faster for each VLM call than the paper-like baseline, on Colab).
 - `smolvlm_256m_evlm_eval.ipynb`: kept the saved run (clone and pull cells, clip, InsPLAD and old ablation outputs) and appended the new cells at the end: the new ablation cell (tokens and ms per token) and the Orin comparison cells.
 - `evlm_eval.py`: reports prefill ms, tokens per answer and decode ms per token for each VLM call (for `--decode bare`, a separate one-token `generate` call measures the prefill). The clip segment time leaves out PNG decode, which is reported apart. Summary field `vlm_ms_per_key` is now `vlm_ms_per_call`.
