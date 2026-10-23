@@ -45,6 +45,7 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- README: added the EVLM ablation results (best setup 6.1 times faster for each VLM call than the paper-like baseline, on Colab).
 - `smolvlm_256m_evlm_eval.ipynb`: kept the saved run (clone and pull cells, clip, InsPLAD and old ablation outputs) and appended the new cells at the end: the new ablation cell (tokens and ms per token) and the Orin comparison cells.
 - `evlm_eval.py`: reports prefill ms, tokens per answer and decode ms per token for each VLM call (for `--decode bare`, a separate one-token `generate` call measures the prefill). The clip segment time leaves out PNG decode, which is reported apart. Summary field `vlm_ms_per_key` is now `vlm_ms_per_call`.
 - `smolvlm_256m_evlm_eval.ipynb`: the ablation table shows tokens and ms per token. New last cells compare a paper-like baseline and the best setup with the paper's Table V numbers (run on the Jetson Orin).
