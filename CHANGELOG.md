@@ -10,6 +10,8 @@ All notable changes to this project are recorded here, newest first.
 - `GraphDecoder` with `eager` attention: graph capture failed with "Cannot copy between CPU and CUDA tensors". The decode step now passes an explicit 4D mask built on the GPU when the text model uses `eager` attention. The `sdpa` path is unchanged.
 
 ### Added
+- `get_data.py`: downloads the datasets of the EVLM paper (Farahani et al., EDGE 2026) with HTTP range requests, standard library only: one 4 s clip (120 frames, 720x480) for each of 8 environments from the UZH power line dataset (Xing et al., IROS 2023), and the InsPLAD-fault supervised classification crops. `data/` is git-ignored. `make data` runs it.
+- `evlm_eval.py` and `smolvlm_256m_evlm_eval.ipynb`: EVLM benchmark with the best setup as default (fast GPU preprocessing, `--size 1024`, graph decoding, stop at EOS, TensorRT SigLIP with one engine per tile count). Task `clips`: histogram key-frame filter (512 bins, tau 0.95) and VLM per key frame, segment latency. Task `insplad`: the two prompts of the paper's Table III, scored against the labels. Every part has a flag; the notebook has an ablation table. `make evlm` runs both tasks.
 - `bench.py --size N` (resize the longest image side to N pixels, so the image has fewer tiles) and `bench.py --trt` (build or load a TensorRT engine for the SigLIP encoder and rerun the stop-at-EOS benchmark with it, with an answer check). The engine file name includes the tile count.
 - `smolvlm_256m_benchmark.ipynb`: new last cell runs the benchmark with `--size 1024`, `--max-len 448` and `--trt`.
 - `tile_sweep.py` and `smolvlm_256m_tile_sweep.ipynb`: experiment that runs a range of tile settings (`default`, `sizeN`, `nosplit`) on one or more images and reports tiles, prompt tokens, cache length, input/prefill/decode time with stop at EOS, request time, speed-up and the answer. `make tiles` runs it.
@@ -43,6 +45,7 @@ All notable changes to this project are recorded here, newest first.
 - `CHANGELOG.md`.
 
 ### Changed
+- `trt_siglip.export_onnx` takes an optional `vision` module.
 - Notebook `smolvlm_256m_benchmark.ipynb`: added the result cell for 5 tiles with TensorRT. The request takes 159 ms (173 ms without TensorRT, 369 ms with 13 tiles).
 - `make_inputs` and `encode` in `smolvlm_cuda_graphs.py` take `size` / `image_kwargs` for the tile setting.
 - README: added the TensorRT SigLIP results (SigLIP 1.23 times faster, prefill 32 ms less).

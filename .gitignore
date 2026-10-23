@@ -3,3 +3,4 @@ GH_TOKEN
 trt_siglip/
 *.onnx
 *.engine
+data/

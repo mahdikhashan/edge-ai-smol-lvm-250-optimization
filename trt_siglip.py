@@ -74,9 +74,10 @@ def capture_encoder_input(model, inputs):
     return got["x"]
 
 
-def export_onnx(model, x, path):
+def export_onnx(model, x, path, vision=None):
     set_attn(model, "eager")  # plain matmul + softmax attention exports cleanly; TensorRT fuses it again
-    enc = copy.deepcopy(Encoder(model.model.vision_model)).half().eval()  # fp16 types: newer TensorRT takes the precision from the ONNX
+    vision = vision or model.model.vision_model
+    enc = copy.deepcopy(Encoder(vision)).half().eval()  # fp16 types: newer TensorRT takes the precision from the ONNX
     set_attn(model, "sdpa")
     args = (x.half(),)
     kw = dict(input_names=["embeds"], output_names=["hidden"], opset_version=17)
